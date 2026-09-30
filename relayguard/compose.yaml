@@ -1,0 +1,28 @@
+services:
+  api:
+    build: .
+    ports: ["127.0.0.1:8000:8000"]
+    environment:
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?Set WEBHOOK_SECRET}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?Set ADMIN_TOKEN}
+      DB_PATH: /app/data/events.db
+    volumes: ["events:/app/data"]
+  worker:
+    build: .
+    command: ["python", "-m", "relayguard.worker"]
+    environment:
+      DELIVERY_SECRET: ${DELIVERY_SECRET:?Set DELIVERY_SECRET}
+      DESTINATION_URL: http://receiver:9000/webhook
+      DB_PATH: /app/data/events.db
+    volumes: ["events:/app/data"]
+    depends_on: [receiver]
+  receiver:
+    build: .
+    command: ["uvicorn", "relayguard.receiver:app_factory", "--factory", "--host", "0.0.0.0", "--port", "9000"]
+    environment:
+      DELIVERY_SECRET: ${DELIVERY_SECRET:?Set DELIVERY_SECRET}
+      RECEIVER_FAILURES: ${RECEIVER_FAILURES:-2}
+    volumes: ["receiver:/app/data"]
+volumes:
+  events:
+  receiver:
